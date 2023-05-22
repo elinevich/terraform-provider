@@ -1,4 +1,4 @@
-module github.com/boxboat/terraform-provider-cmdb
+module github.com/elinevich/terraform-provider/terraform-provider-youtrack
 
 require github.com/hashicorp/terraform-plugin-sdk v1.1.1
 

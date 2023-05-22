@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/plugin"
-	"github.com/boxboat/terraform-provider-youtrack/youtrack"
+	"github.com/elinevich/terraform-provider/terraform-provider-youtrack"
 )
 
 func main() {

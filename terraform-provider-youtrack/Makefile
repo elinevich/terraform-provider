@@ -1,4 +1,4 @@
-PKG_NAME=cmdb
+PKG_NAME=youtrack
 
 default: build
 
