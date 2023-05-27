@@ -19,13 +19,6 @@ func getDetailsForUsersSchema() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
-			"fields": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
 			"login": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -68,11 +61,10 @@ func getUsersDataSourceRead(d *schema.ResourceData, meta interface{}) (err error
 		}
 	}
 	login := d.Get("login").(string)
-	fields := d.Get("fields").(string)
 	// if resourceName == "" {
 	// 	return fmt.Errorf("Invalid resource type specified")
 	// }
-	b, err := client.doGetDetailsByName(client.BaseUrl.String(), fields, login)
+	b, err := client.doGetDetailsByName(client.BaseUrl.String(), login)
 	if err != nil {
 		return
 	}

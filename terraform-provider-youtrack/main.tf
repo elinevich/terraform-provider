@@ -15,9 +15,7 @@ provider "youtrack" {
 
 data "name_users" "user_elinevich" {
   provider = youtrack
-  fields = "id,login,fullName,email,name,jabberAccount,online,avatarUrl,banned,tags"
   login = "anna.e"
-
 }
 
 output "user" {

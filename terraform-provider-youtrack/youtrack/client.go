@@ -40,13 +40,13 @@ func NewClient(h http.Header, hostname, version string) *Client {
 	return client
 }
 
-func (c *Client) doGetDetailsByName(baseURL, fields string, login string) (b []byte, err error) {
+func (c *Client) doGetDetailsByName(baseURL, login string) (b []byte, err error) {
 	path := fmt.Sprintf("https://%s/users/%s", baseURL, login)
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.URL.RawQuery = fmt.Sprintf("fields=%s", fields)
+	req.URL.RawQuery = fmt.Sprintf("fields=id,login,fullName,email,name,jabberAccount,jabberAccountName,online,avatarUrl,banned,tags,ringId,guest,avatarUrl,profiles")
 	for name, value := range c.headers {
 		req.Header.Add(name, strings.Join(value, ""))
 	}
