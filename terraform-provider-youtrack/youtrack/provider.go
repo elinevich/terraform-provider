@@ -59,6 +59,7 @@ func Provider() terraform.ResourceProvider {
 	}
 }
 
+
 func (api *Api) trace(v ...interface{}) {
 	if api.EnableTracing {
 		log.Println(v...)
