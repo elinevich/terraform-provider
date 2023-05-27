@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     youtrack = {
-      source = "terraform.local/local/cmdb"
+      source = "terraform.local/local/youtrack"
       version = "1.0.0"
     }
   }
@@ -9,30 +9,17 @@ terraform {
 
 provider "youtrack" {
   api_version = "v1"
-  hostname = "localhost"
+  base_url = var.youtrack_base_url
+  token = var.youtrack_token
 }
 
-# data "name_allocation" "vm_1_name" {
-#   provider = "cmdb"
+data "name_users" "user_elinevich" {
+  provider = youtrack
+  fields = "id,login,fullName,email,name,jabberAccount,online,avatarUrl,banned,tags"
+  login = "anna.e"
 
-#   region = "us-east-1"
-#   resource_type = "COL"
-# }
+}
 
-# data "name_details" "vm_1_details" {
-#   provider = "cmdb"
-
-#   name = data.name_allocation.vm_1_name.name
-# }
-
-# output "vm_1_name" {
-#   value = data.name_allocation.vm_1_name.name
-# }
-
-# output "vm_1_type" {
-#   value = data.name_details.vm_1_details.type
-# }
-
-# output "vm_1_details_raw" {
-#   value = data.name_details.vm_1_details.raw
-# }
+output "user" {
+  value = data.name_users.user_elinevich
+}

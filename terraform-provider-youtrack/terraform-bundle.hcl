@@ -1,7 +1,7 @@
 terraform {
-    version = "0.12.18"
+    version = "1.4.6"
 }
 
 providers {
-    cmdb = ["1.0.0"]
+    youtrack = ["1.0.0"]
 }

@@ -1,23 +1,17 @@
-// Package youtrack implements REST API client that can be used with YouTrack as
-// described in
-// https://www.jetbrains.com/help/youtrack/incloud/Resources-for-Developers.html
+
 package youtrack
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
+
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
-)
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 
-// Api is the YouTrack API context.
-// BaseURL and Token must be set.
+)
 type Api struct {
+	ApiVersion  string
 	// BaseURL is the URL to the REST API endpoint for a YouTrack Project. It should
 	// end is a slash. For example: https://goyt.myjetbrains.com/youtrack/api/
 	BaseURL *url.URL
@@ -31,95 +25,102 @@ type Api struct {
 	// NOTE that the authorization token will be logged when this is enabled.
 	EnableTracing bool
 }
+func Provider() terraform.ResourceProvider {
+	return &schema.Provider{
+		Schema: map[string]*schema.Schema{
+			"api_version": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
+			"base_url": {
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("Base_url", ""),
+			},
+			"token": {
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("SERVICE_TOKEN", ""),
+			},
+			// "EnableTracing" {
+			// 	Type:        bool,
+			// 	Optional: true,
+			// 	Default:  true,
+			// },
+		},
+		DataSourcesMap: map[string]*schema.Resource{
+			"name_users": getDetailsForUsersSchema(),
+		},
+		ResourcesMap: map[string]*schema.Resource{
+			// "example_item": resourceItem(),
+		},
+		ConfigureFunc: providerConfigure,
+	}
+}
 
 func (api *Api) trace(v ...interface{}) {
 	if api.EnableTracing {
 		log.Println(v...)
 	}
 }
-
-// DoRequest makes an authenticated HTTP request to the YouTrack API.
-// jsonRequest and jsonResult are both optional, and depend on the request being made. A GET request,
-// for example, should probably set jsonRequestBody to nil.
-func (api *Api) DoRequest(ctx context.Context, resource *url.URL, method string, jsonRequest, jsonResult interface{}) error {
-	api.trace(method, resource)
-
-	resourceURL := api.BaseURL.ResolveReference(resource)
-	api.trace("Resolved URL", resourceURL)
-
-	reqBody := new(bytes.Buffer)
-
-	if jsonRequest != nil {
-		enc := json.NewEncoder(reqBody)
-		err := enc.Encode(jsonRequest)
-		if err != nil {
-			log.Printf("Failed to encode json reqBody. %s", err)
-			return err
-		}
-	}
-
-	// TODO: Move to NewRequestWithContext when 1.11 support no longer required.
-	// req, err := http.NewRequestWithContext(ctx, method, resourceURL.String(), reqBody)
-	req, err := http.NewRequest(method, resourceURL.String(), reqBody)
-	if err != nil {
-		log.Printf("NewRequest failed. %s", err)
-		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+api.Token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Content-Type", "application/json")
-
-	if api.EnableTracing {
-		dump, err := httputil.DumpRequestOut(req, true)
-		if err != nil {
-			log.Fatalf("Failed to dump request: %s", err)
-		}
-		api.trace(fmt.Sprintf("Request Dump\n%s", string(dump)))
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("%s %s request failed. %s", resource, method, err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	if api.EnableTracing {
-		dump, err := httputil.DumpResponse(resp, true)
-		if err != nil {
-			log.Fatalf("Failed to dump response: %s", err)
-		}
-		api.trace(fmt.Sprintf("Response Dump:\n%s", string(dump)))
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Printf("Error reading body of HTTP response with status %d. %s", resp.StatusCode, err)
-		}
-		return fmt.Errorf("GET %s failed with status code %d. Body: %s", resource, resp.StatusCode, string(respBody))
-	}
-
-	if jsonResult != nil {
-		dec := json.NewDecoder(resp.Body)
-		err = dec.Decode(jsonResult)
-		if err != nil {
-			log.Printf("Failed to decode json result. %s", err)
-			return err
-		}
-	}
-
-	return nil
+type ProviderClient struct {
+	ApiVersion  string
+	Hostname string
+	Client      *Client
 }
 
-// Get makes an authenticated GET request to the YouTrack API.
-func (api *Api) Get(ctx context.Context, resource *url.URL, jsonResult interface{}) error {
-	return api.DoRequest(ctx, resource, http.MethodGet, nil, jsonResult)
+func newProviderClient(apiVersion, hostname string, headers http.Header) (ProviderClient, error) {
+	p := ProviderClient{
+		ApiVersion: apiVersion,
+		Hostname:   hostname,
+
+	}
+	p.Client = NewClient(headers, hostname, apiVersion)
+
+	return p, nil
 }
 
-// Post makes an authenticated POST request to the YouTrack API.
-func (api *Api) Post(ctx context.Context, resource *url.URL, jsonRequest, jsonResult interface{}) error {
-	return api.DoRequest(ctx, resource, http.MethodPost, jsonRequest, jsonResult)
+func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+	apiVersion := d.Get("api_version").(string)
+	if apiVersion == "" {
+		log.Println("Defaulting environment in URL config to use API default version...")
+	}
+
+	hostname := d.Get("base_url").(string)
+	if hostname == "" {
+		log.Println("Defaulting environment in URL config to use API default hostname...")
+		hostname = "localhost"
+	}
+	token := d.Get("token").(string)
+
+	h := make(http.Header)
+	h.Set("Content-Type", "application/json")
+	h.Set("Accept", "application/json")
+	h.Set("Authorization", "Bearer "+token)
+
+	headers, exists := d.GetOk("headers")
+	if exists {
+		for k, v := range headers.(map[string]interface{}) {
+			h.Set(k, v.(string))
+		}
+	}
+
+	return newProviderClient(apiVersion, hostname, h)
 }
+
+func marshalData(d *schema.ResourceData, vals map[string]interface{}) {
+	for k, v := range vals {
+		if k == "id" {
+			d.SetId(v.(string))
+		} else {
+			str, ok := v.(string)
+			if ok {
+				d.Set(k, str)
+			} else {
+				d.Set(k, v)
+			}
+		}
+	}
+}
+
