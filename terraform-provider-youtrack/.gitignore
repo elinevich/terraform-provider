@@ -5,7 +5,7 @@ terraform-provider-youtrack/terraform.tfstate
 **/terraform.tfstate.backup
 *.tfstate
 **/terraform.tfstate
-
+variables.tf
 **/*.lock.hcl
 
 # Local .terraform directories
